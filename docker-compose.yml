@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # FastAPI应用
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - ENVIRONMENT=development
+    depends_on:
+      - redis
+      - qdrant
+    env_file:
+      - .env
+
+  # Qdrant向量数据库
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # Dify本地部署 (可选)
+  dify-web:
+    image: langgenius/dify-web:0.6.0
+    ports:
+      - "3000:3000"
+    environment:
+      - EDITION=SELF_HOSTED
+      - API_URL=http://dify-api:5001
+    depends_on:
+      - dify-api
+
+  dify-api:
+    image: langgenius/dify-api:0.6.0
+    ports:
+      - "5001:5001"
+    environment:
+      - SECRET_KEY=${DIFY_SECRET_KEY:-your-secret-key-here}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-your-db-password}@db:5432/dify
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+
+  # PostgreSQL for Dify
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=dify
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=difyai123456
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  qdrant_data:
+  redis_data:
+  postgres_data: 
