@@ -44,11 +44,11 @@ class AgentResponse(BaseResponse):
     """Agent响应模型"""
     result: str = Field(..., description="Agent执行结果")
     agent_type: str = Field(..., description="Agent类型")
-    steps: List[Dict[str, Any]] = Field(default_factory=list, description="执行步骤")
     tools_used: List[str] = Field(default_factory=list, description="使用的工具")
     execution_time: float = Field(..., description="执行时间(秒)")
     memory_used: int = Field(default=0, description="使用的记忆数量")
-    trace_id: Optional[str] = Field(default=None, description="追踪ID")
+    trace_id: Optional[str] = Field(None, description="追踪ID")
+    error: Optional[str] = Field(None, description="错误信息")
 
 
 class HealthResponse(BaseModel):

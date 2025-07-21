@@ -1,12 +1,12 @@
 from typing import Optional
-import time
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.models.request import AgentRequest, DifyRequest
 from app.models.response import AgentResponse
-from app.services.agent_service import enhanced_agent_service
-from app.services.monitoring_service import monitoring_service
+from app.agents.langchain_react_agent import langchain_react_agent
+from app.agents.dify_agent import dify_agent
+from app.agents.crew_multi_agent import crew_multi_agent
+from app.core.monitoring_service import monitoring_service
 from app.utils.logger import app_logger
-import httpx
 
 router = APIRouter()
 
@@ -18,46 +18,74 @@ async def execute_agent(
 ):
     """执行Agent任务"""
     try:
+        # 根据agent类型调用对应的agent
         if request.agent_type == "react":
-            # 执行ReAct Agent
-            result = await enhanced_agent_service.execute_react_agent(
+            result = await langchain_react_agent.execute(
                 task=request.task,
                 user_id=request.user_id,
                 session_id=request.session_id,
                 agent_id=request.agent_id,
                 model=request.model,
                 max_iterations=request.max_iterations,
-                use_memory=request.use_memory
+                use_memory=request.use_memory,
+                selected_tools=request.tools
             )
-        elif request.agent_type == "simple":
-            # 执行简单Agent
-            result = await enhanced_agent_service.execute_simple_agent(
+        elif request.agent_type == "crew":
+            # Crew多智能体协作
+            crew_config = None
+            if request.metadata:
+                crew_config = {
+                    "agents": request.metadata.get("agents", ["researcher", "analyst", "writer"]),
+                    "process": request.metadata.get("process", "sequential"),
+                    "max_iterations": request.metadata.get("max_iterations", 5)
+                }
+            
+            result = await crew_multi_agent.execute(
                 task=request.task,
                 user_id=request.user_id,
                 session_id=request.session_id,
                 agent_id=request.agent_id,
                 model=request.model,
-                use_memory=request.use_memory
+                use_memory=request.use_memory,
+                selected_tools=request.tools,
+                crew_config=crew_config
             )
         elif request.agent_type == "dify":
-            # 保持原有的Dify实现
-            result = await _execute_dify_agent(request)
+            # 从metadata中提取workflow_id
+            workflow_id = None
+            if request.metadata:
+                workflow_id = request.metadata.get("workflow_id")
+            
+            # 构建dify参数
+            dify_kwargs = {}
+            if request.metadata:
+                dify_kwargs.update(request.metadata)
+            
+            result = await dify_agent.execute(
+                task=request.task,
+                user_id=request.user_id,
+                session_id=request.session_id,
+                agent_id=request.agent_id,
+                workflow_id=workflow_id,
+                use_memory=request.use_memory,
+                **dify_kwargs
+            )
         else:
-            raise ValueError(f"不支持的Agent类型: {request.agent_type}")
+            raise ValueError(f"不支持的Agent类型: {request.agent_type}。支持的类型: react, crew, dify")
         
         # 后台任务：刷新监控数据
         background_tasks.add_task(monitoring_service.flush)
         
         return AgentResponse(
             success=result["success"],
-            message="Agent执行完成",
+            message="Agent执行完成" if result["success"] else "Agent执行失败",
             result=result["result"],
             agent_type=result["agent_type"],
-            steps=result.get("steps", []),
             tools_used=result.get("tools_used", []),
             execution_time=result["execution_time"],
             memory_used=result.get("memory_used", 0),
-            trace_id=result.get("trace_id")
+            trace_id=result.get("trace_id"),
+            error=result.get("error")
         )
         
     except Exception as e:
@@ -65,123 +93,132 @@ async def execute_agent(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _execute_dify_agent(request: AgentRequest) -> dict:
-    """执行Dify Agent"""
+@router.get("/agents/types")
+async def get_available_agent_types():
+    """获取所有可用的Agent类型"""
     try:
-        # 这里是Dify API调用的简化实现
-        # 实际项目中应该调用真正的Dify API
-        
-        steps = [
-            {"step": 1, "action": "连接Dify", "result": "已连接到Dify平台"},
-            {"step": 2, "action": "发送任务", "result": f"任务已发送: {request.task}"},
-            {"step": 3, "action": "处理响应", "result": "Dify正在处理..."},
-            {"step": 4, "action": "返回结果", "result": "获得Dify响应"}
+        agents_info = [
+            langchain_react_agent.get_agent_info(),
+            crew_multi_agent.get_agent_info(),
+            dify_agent.get_agent_info()
         ]
-        
-        tools_used = ["dify_workflow"]
-        
-        result = f"基于Dify平台的执行结果：已完成任务 '{request.task}'"
         
         return {
             "success": True,
-            "result": result,
-            "agent_type": "dify",
-            "steps": steps,
-            "tools_used": tools_used,
-            "execution_time": 1.0,
-            "memory_used": 0
+            "message": "获取Agent类型成功",
+            "agents": agents_info,
+            "supported_types": ["react", "crew", "dify"]
         }
-        
     except Exception as e:
-        app_logger.error(f"Dify Agent执行失败: {e}")
+        app_logger.error(f"获取Agent类型失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/types/{agent_type}")
+async def get_agent_info(agent_type: str):
+    """获取特定Agent类型的详细信息"""
+    try:
+        if agent_type == "react":
+            agent_info = langchain_react_agent.get_agent_info()
+        elif agent_type == "crew":
+            agent_info = crew_multi_agent.get_agent_info()
+        elif agent_type == "dify":
+            agent_info = dify_agent.get_agent_info()
+        else:
+            raise HTTPException(status_code=404, detail=f"不支持的Agent类型: {agent_type}。支持的类型: react, crew, dify")
+        
+        return {
+            "success": True,
+            "agent_info": agent_info
+        }
+    except HTTPException:
         raise
+    except Exception as e:
+        app_logger.error(f"获取Agent信息失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/crew/roles")
+async def get_crew_roles():
+    """获取Crew多智能体的预定义角色"""
+    try:
+        roles = crew_multi_agent.get_predefined_roles()
+        return {
+            "success": True,
+            "message": "获取Crew角色成功",
+            "roles": roles
+        }
+    except Exception as e:
+        app_logger.error(f"获取Crew角色失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/dify/workflows")
+async def list_dify_workflows():
+    """获取Dify工作流列表"""
+    try:
+        workflows = await dify_agent.list_workflows()
+        return {
+            "success": True,
+            "message": "获取Dify工作流列表成功",
+            "workflows": workflows
+        }
+    except Exception as e:
+        app_logger.error(f"获取Dify工作流列表失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/agents/dify/chat")
-async def dify_chat(request: DifyRequest):
-    """Dify聊天接口"""
+async def dify_chat_completion(
+    request: DifyRequest,
+    background_tasks: BackgroundTasks
+):
+    """Dify聊天补全接口（兼容性接口）"""
     try:
-        # 这里应该调用实际的Dify API
-        # 由于演示项目，返回模拟响应
+        # 直接调用dify_agent
+        result = await dify_agent.execute(
+            task=request.query,
+            user_id=request.user,
+            workflow_id=request.workflow_id,
+            **request.inputs
+        )
         
-        response = {
-            "success": True,
-            "answer": f"Dify回复: {request.query}",
-            "conversation_id": request.conversation_id or "dify-conv-123",
-            "message_id": "msg-123",
-            "metadata": {
-                "usage": {"tokens": 100},
-                "model": "dify-model"
-            }
+        # 后台任务：刷新监控数据
+        background_tasks.add_task(monitoring_service.flush)
+        
+        return {
+            "success": result["success"],
+            "message": result["result"],
+            "workflow_id": request.workflow_id,
+            "execution_time": result["execution_time"]
         }
-        
-        return response
         
     except Exception as e:
         app_logger.error(f"Dify聊天失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/agents/types")
-async def get_agent_types():
-    """获取支持的Agent类型"""
-    return {
-        "success": True,
-        "agent_types": [
-            {
-                "type": "react",
-                "name": "ReAct Agent",
-                "description": "基于ReAct模式的智能体，支持推理和行动循环",
-                "capabilities": ["工具调用", "推理链", "记忆管理", "多步骤执行"]
-            },
-            {
-                "type": "simple", 
-                "name": "Simple Agent",
-                "description": "简单的对话式智能体，基于记忆增强",
-                "capabilities": ["对话生成", "记忆管理", "上下文理解"]
-            },
-            {
-                "type": "dify",
-                "name": "Dify Agent", 
-                "description": "基于Dify平台的智能体",
-                "capabilities": ["可视化工作流", "多模型支持", "低代码开发"]
-            }
-        ]
-    }
-
-
-@router.get("/agents/tools")
-async def get_available_tools():
-    """获取可用工具列表"""
+@router.get("/agents/health")
+async def agents_health_check():
+    """Agent服务健康检查"""
     try:
-        tools = enhanced_agent_service.get_available_tools()
+        from app.core.memory_service import memory_service
+        
+        health_info = {
+            "supported_agents": ["react", "crew", "dify"],
+            "agents_count": 3,
+            "memory_service": "enabled" if memory_service.is_enabled() else "disabled",
+            "monitoring_service": "enabled" if monitoring_service.is_enabled() else "disabled",
+            "langchain_react_agent": "healthy",
+            "crew_multi_agent": "healthy",
+            "dify_agent": "healthy"
+        }
+        
         return {
             "success": True,
-            "tools": tools,
-            "count": len(tools)
+            "message": "Agent服务运行正常",
+            "health_info": health_info
         }
     except Exception as e:
-        app_logger.error(f"获取工具列表失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/agents/memory/summary")
-async def get_agent_memory_summary(
-    user_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
-    session_id: Optional[str] = None
-):
-    """获取Agent记忆摘要"""
-    try:
-        summary = await enhanced_agent_service.get_memory_summary(
-            user_id=user_id,
-            agent_id=agent_id,
-            session_id=session_id
-        )
-        return {
-            "success": True,
-            "memory_summary": summary
-        }
-    except Exception as e:
-        app_logger.error(f"获取记忆摘要失败: {e}")
+        app_logger.error(f"Agent健康检查失败: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 

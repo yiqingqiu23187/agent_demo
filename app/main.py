@@ -8,7 +8,7 @@ import uvicorn
 
 from app.core.config import settings
 from app.utils.logger import app_logger
-from app.api.v1 import chat, rag, agents, memory
+from app.api.v1 import rag, agents
 from app.models.response import HealthResponse, ErrorResponse
 
 
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     app_logger.info("🔄 应用关闭中...")
     
     # 这里可以添加清理逻辑
-    from app.services.monitoring_service import monitoring_service
+    from app.core.monitoring_service import monitoring_service
     monitoring_service.flush()
     
     app_logger.info("✅ 应用已关闭")
@@ -96,10 +96,10 @@ async def health_check():
     """健康检查"""
     try:
         # 检查各个服务状态
-        from app.services.llm_service import llm_service
-        from app.services.vector_service import vector_service
-        from app.services.monitoring_service import monitoring_service
-        from app.services.memory_service import memory_service
+        from app.core.llm_service import llm_service
+        from app.core.vector_service import vector_service
+        from app.core.monitoring_service import monitoring_service
+        from app.core.memory_service import memory_service
         
         services = {
             "llm_service": "healthy" if llm_service.get_available_models() else "unhealthy",
@@ -132,12 +132,10 @@ async def root():
 
 
 # 包含API路由
-from app.api.v1 import chat, rag, agents, memory
+from app.api.v1 import rag, agents
 
-app.include_router(chat.router, prefix="/api/v1", tags=["聊天"])
-app.include_router(rag.router, prefix="/api/v1", tags=["RAG"])
+app.include_router(rag.router, prefix="/api/v1", tags=["知识库管理"])
 app.include_router(agents.router, prefix="/api/v1", tags=["智能体"])
-app.include_router(memory.router, prefix="/api/v1", tags=["记忆管理"])
 
 
 def main():

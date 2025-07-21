@@ -37,7 +37,7 @@ class DocumentUploadRequest(BaseModel):
 class AgentRequest(BaseModel):
     """Agent请求模型"""
     task: str = Field(..., description="任务描述")
-    agent_type: str = Field(default="react", description="Agent类型: react, simple, dify")
+    agent_type: str = Field(default="react", description="Agent类型: react, crew, dify")
     model: str = Field(default="gpt-4o-mini", description="使用的模型")
     user_id: Optional[str] = Field(default=None, description="用户ID")
     session_id: Optional[str] = Field(default=None, description="会话ID")

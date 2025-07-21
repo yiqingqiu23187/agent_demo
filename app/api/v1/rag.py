@@ -1,44 +1,11 @@
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
-from app.models.request import RAGQueryRequest, DocumentUploadRequest
-from app.models.response import RAGResponse, FileUploadResponse
-from app.services.rag_service import rag_service
+from fastapi import APIRouter, HTTPException, UploadFile, File
+from app.models.response import FileUploadResponse
+from app.core.rag_service import rag_service
 from app.utils.logger import app_logger
 import uuid
 
 router = APIRouter()
-
-
-@router.post("/rag/query", response_model=RAGResponse)
-async def rag_query(
-    request: RAGQueryRequest,
-    background_tasks: BackgroundTasks,
-    user_id: Optional[str] = None,
-    session_id: Optional[str] = None
-):
-    """RAG查询接口"""
-    try:
-        result = await rag_service.query(
-            query=request.query,
-            collection_name=request.collection_name,
-            top_k=request.top_k,
-            score_threshold=request.score_threshold,
-            user_id=user_id,
-            session_id=session_id
-        )
-        
-        return RAGResponse(
-            success=True,
-            message="RAG查询完成",
-            answer=result["answer"],
-            sources=result["sources"],
-            query=request.query,
-            collection_name=request.collection_name
-        )
-        
-    except Exception as e:
-        app_logger.error(f"RAG查询失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/rag/documents", response_model=FileUploadResponse)
@@ -67,6 +34,30 @@ async def add_documents(
         
     except Exception as e:
         app_logger.error(f"添加文档失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/rag/batch_documents")
+async def batch_add_documents(
+    collection_name: str,
+    documents: List[dict]
+):
+    """批量添加文档到知识库"""
+    try:
+        result = await rag_service.batch_add_documents(
+            documents=documents,
+            collection_name=collection_name
+        )
+        
+        return {
+            "success": True,
+            "message": result["message"],
+            "collection_name": result["collection_name"],
+            "added_count": result["added_count"]
+        }
+        
+    except Exception as e:
+        app_logger.error(f"批量添加文档失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -108,29 +99,4 @@ async def upload_file(
         
     except Exception as e:
         app_logger.error(f"文件上传失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/rag/collections/{collection_name}")
-async def get_collection_info(collection_name: str):
-    """获取知识库信息"""
-    try:
-        info = await rag_service.get_collection_info(collection_name)
-        return {
-            "success": True,
-            "collection_info": info
-        }
-    except Exception as e:
-        app_logger.error(f"获取知识库信息失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.delete("/rag/collections/{collection_name}")
-async def delete_collection(collection_name: str):
-    """删除知识库"""
-    try:
-        result = await rag_service.delete_collection(collection_name)
-        return result
-    except Exception as e:
-        app_logger.error(f"删除知识库失败: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 

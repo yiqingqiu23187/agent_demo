@@ -6,17 +6,18 @@
 
 ### 集成的技术栈
 - **🤖 LLM模型**: OpenAI GPT-4o、Anthropic Claude-3.5
-- **🔗 开发框架**: LangChain、LangGraph
+- **🔗 Agent框架**: LangChain ReAct、CrewAI多智能体、Dify低代码平台
 - **📊 监控系统**: LangFuse 调用链追踪和性能监控
 - **🗄️ 向量数据库**: Chroma、Qdrant、Pinecone
-- **🔧 低代码平台**: Dify 集成支持
+- **🛠️ 工具集成**: 搜索引擎、计算器、API调用、文件处理
 - **🚀 Web框架**: FastAPI + Uvicorn
 
 ### 核心功能
-- **💬 智能聊天**: 支持多模型切换、流式输出
-- **🔍 RAG问答**: 文档上传、向量检索、知识问答
-- **🤖 Agent执行**: LangChain和Dify智能体任务执行
+- **🤖 多Agent架构**: LangChain ReAct Agent、Dify Agent、CrewAI多智能体协作
+- **🔍 知识库管理**: 文档上传、向量存储、RAG检索
+- **🛠️ 工具调用**: 搜索、计算、API调用等多种工具集成
 - **📈 性能监控**: LangFuse集成的完整可观测性
+- **🧠 记忆系统**: 用户对话历史和上下文记忆
 - **🐳 容器化部署**: Docker Compose一键启动
 
 ## 📁 项目结构
@@ -26,9 +27,9 @@ agent_demo/
 ├── AI_Agent_Development_Guide.md  # 技术分享文档
 ├── app/                           # FastAPI应用
 │   ├── main.py                    # 应用入口
-│   ├── core/                      # 核心配置
-│   ├── api/v1/                    # API路由
-│   ├── services/                  # 业务服务
+│   ├── core/                      # 核心服务 (LLM、RAG、内存、监控等)
+│   ├── agents/                    # 智能体实现 (LangChain、Dify、CrewAI)
+│   ├── api/v1/                    # API路由 (专注Agent和知识库管理)
 │   ├── models/                    # 数据模型
 │   └── utils/                     # 工具函数
 ├── requirements.txt               # Python依赖
@@ -98,20 +99,9 @@ docker-compose logs -f app
 
 ## 📡 API 使用示例
 
-### 聊天接口
+### 知识库管理
 ```bash
-curl -X POST "http://localhost:8000/api/v1/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "你好，请介绍一下AI Agent",
-    "model": "gpt-4o-mini",
-    "temperature": 0.7
-  }'
-```
-
-### RAG查询
-```bash
-# 先添加文档到知识库
+# 添加文档到知识库
 curl -X POST "http://localhost:8000/api/v1/rag/documents" \
   -H "Content-Type: application/json" \
   -d '{
@@ -120,25 +110,51 @@ curl -X POST "http://localhost:8000/api/v1/rag/documents" \
     "metadatas": [{"source": "demo"}]
   }'
 
-# 然后进行RAG查询
-curl -X POST "http://localhost:8000/api/v1/rag/query" \
+# 批量添加文档
+curl -X POST "http://localhost:8000/api/v1/rag/batch_documents" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "什么是AI Agent?",
     "collection_name": "demo_kb",
-    "top_k": 3
+    "documents": [
+      {"text": "文档内容1", "metadata": {"type": "article"}},
+      {"text": "文档内容2", "metadata": {"type": "guide"}}
+    ]
   }'
 ```
 
 ### Agent执行
 ```bash
+# LangChain ReAct Agent
 curl -X POST "http://localhost:8000/api/v1/agents/execute" \
   -H "Content-Type: application/json" \
   -d '{
     "task": "帮我制定一个学习AI的计划",
-    "agent_type": "langchain",
+    "agent_type": "react",
     "tools": ["search", "calculator"],
-    "memory": true
+    "use_memory": true
+  }'
+
+# CrewAI 多智能体协作
+curl -X POST "http://localhost:8000/api/v1/agents/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "分析当前AI技术趋势并撰写报告",
+    "agent_type": "crew",
+    "metadata": {
+      "agents": ["researcher", "analyst", "writer"],
+      "process": "sequential"
+    }
+  }'
+
+# Dify Agent
+curl -X POST "http://localhost:8000/api/v1/agents/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "处理客户咨询",
+    "agent_type": "dify",
+    "metadata": {
+      "workflow_id": "your-workflow-id"
+    }
   }'
 ```
 
