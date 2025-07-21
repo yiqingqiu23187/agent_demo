@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 import os
 from abc import ABC, abstractmethod
 from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma, Qdrant
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -32,7 +33,36 @@ class ChromaVectorStore(VectorStoreBase):
     """Chroma向量存储实现"""
     
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(api_key=settings.openai_api_key)
+        try:
+            # 尝试使用OpenAI embeddings（如果API密钥可用且有配额）
+            if settings.openai_api_key:
+                try:
+                    # 测试OpenAI API是否可用
+                    test_embeddings = OpenAIEmbeddings(api_key=settings.openai_api_key)
+                    # 进行一个小测试
+                    test_embeddings.embed_query("test")
+                    self.embeddings = test_embeddings
+                    app_logger.info("使用OpenAI Embeddings")
+                except Exception as e:
+                    app_logger.warning(f"OpenAI Embeddings不可用，切换到本地模型: {e}")
+                    # 使用本地HuggingFace模型
+                    self.embeddings = HuggingFaceEmbeddings(
+                        model_name="sentence-transformers/all-MiniLM-L6-v2",
+                        model_kwargs={'device': 'cpu'}
+                    )
+                    app_logger.info("使用本地HuggingFace Embeddings")
+            else:
+                # 直接使用本地模型
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name="sentence-transformers/all-MiniLM-L6-v2", 
+                    model_kwargs={'device': 'cpu'}
+                )
+                app_logger.info("使用本地HuggingFace Embeddings")
+        except Exception as e:
+            app_logger.error(f"Embedding模型初始化失败: {e}")
+            # 如果都失败了，使用一个简单的fallback
+            raise RuntimeError("无法初始化任何embedding模型")
+            
         self.persist_directory = settings.chroma_persist_directory
         os.makedirs(self.persist_directory, exist_ok=True)
     
@@ -96,7 +126,35 @@ class QdrantVectorStore(VectorStoreBase):
     """Qdrant向量存储实现"""
     
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(api_key=settings.openai_api_key)
+        try:
+            # 尝试使用OpenAI embeddings（如果API密钥可用且有配额）
+            if settings.openai_api_key:
+                try:
+                    # 测试OpenAI API是否可用
+                    test_embeddings = OpenAIEmbeddings(api_key=settings.openai_api_key)
+                    # 进行一个小测试
+                    test_embeddings.embed_query("test")
+                    self.embeddings = test_embeddings
+                    app_logger.info("Qdrant使用OpenAI Embeddings")
+                except Exception as e:
+                    app_logger.warning(f"OpenAI Embeddings不可用，Qdrant切换到本地模型: {e}")
+                    # 使用本地HuggingFace模型
+                    self.embeddings = HuggingFaceEmbeddings(
+                        model_name="sentence-transformers/all-MiniLM-L6-v2",
+                        model_kwargs={'device': 'cpu'}
+                    )
+                    app_logger.info("Qdrant使用本地HuggingFace Embeddings")
+            else:
+                # 直接使用本地模型
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name="sentence-transformers/all-MiniLM-L6-v2", 
+                    model_kwargs={'device': 'cpu'}
+                )
+                app_logger.info("Qdrant使用本地HuggingFace Embeddings")
+        except Exception as e:
+            app_logger.error(f"Qdrant Embedding模型初始化失败: {e}")
+            raise RuntimeError("无法初始化任何embedding模型")
+            
         self.client = QdrantClient(
             host=settings.qdrant_host,
             port=settings.qdrant_port,
