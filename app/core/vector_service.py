@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 import os
 from abc import ABC, abstractmethod
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma, Qdrant
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document

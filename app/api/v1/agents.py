@@ -51,24 +51,20 @@ async def execute_agent(
                 crew_config=crew_config
             )
         elif request.agent_type == "dify":
-            # 从metadata中提取workflow_id
-            workflow_id = None
-            if request.metadata:
-                workflow_id = request.metadata.get("workflow_id")
+            # 构建dify特定的参数
+            dify_inputs = {}
+            conversation_id = None
             
-            # 构建dify参数
-            dify_kwargs = {}
             if request.metadata:
-                dify_kwargs.update(request.metadata)
+                # 从metadata中提取inputs和conversation_id
+                dify_inputs = request.metadata.get("inputs", {})
+                conversation_id = request.metadata.get("conversation_id")
             
             result = await dify_agent.execute(
-                task=request.task,
+                query=request.task,  # dify_agent期望query参数而不是task
                 user_id=request.user_id,
-                session_id=request.session_id,
-                agent_id=request.agent_id,
-                workflow_id=workflow_id,
-                use_memory=request.use_memory,
-                **dify_kwargs
+                conversation_id=conversation_id,
+                inputs=dify_inputs
             )
         else:
             raise ValueError(f"不支持的Agent类型: {request.agent_type}。支持的类型: react, crew, dify")
@@ -177,10 +173,10 @@ async def dify_chat_completion(
     try:
         # 直接调用dify_agent
         result = await dify_agent.execute(
-            task=request.query,
+            query=request.query,
             user_id=request.user,
-            workflow_id=request.workflow_id,
-            **request.inputs
+            conversation_id=request.conversation_id,
+            inputs=request.inputs or {}
         )
         
         # 后台任务：刷新监控数据
@@ -189,7 +185,7 @@ async def dify_chat_completion(
         return {
             "success": result["success"],
             "message": result["result"],
-            "workflow_id": request.workflow_id,
+            "conversation_id": result.get("conversation_id"),
             "execution_time": result["execution_time"]
         }
         

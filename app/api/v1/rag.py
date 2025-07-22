@@ -99,4 +99,32 @@ async def upload_file(
         
     except Exception as e:
         app_logger.error(f"文件上传失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/rag/query")
+async def query_knowledge_base(
+    query: str,
+    collection_name: str,
+    top_k: int = 5
+):
+    """查询知识库"""
+    try:
+        result = await rag_service.query_knowledge_base(
+            query=query,
+            collection_name=collection_name,
+            top_k=top_k
+        )
+        
+        return {
+            "success": True,
+            "query": query,
+            "collection_name": collection_name,
+            "results": result.get("documents", []),
+            "scores": result.get("scores", []),
+            "total_found": len(result.get("documents", []))
+        }
+        
+    except Exception as e:
+        app_logger.error(f"知识库查询失败: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 

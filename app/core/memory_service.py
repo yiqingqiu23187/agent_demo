@@ -15,43 +15,42 @@ class MemoryService:
     def _initialize_memory(self):
         """初始化Mem0实例"""
         try:
-            # Mem0配置
+            if not settings.openai_api_key:
+                app_logger.warning("OpenAI API密钥未配置，记忆功能将被禁用")
+                return
+                
+            # 创建数据目录
+            import os
+            os.makedirs("./data", exist_ok=True)
+            
+            # 设置OpenAI API密钥环境变量
+            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+            
+            from mem0 import Memory
+            
+            # 使用简化配置，依赖默认行为
             config = {
                 "vector_store": {
                     "provider": "chroma",
                     "config": {
-                        "collection_name": "agent_memories",
-                        "path": "./data/mem0_db",
+                        "path": "./data/mem0_db"
                     }
-                },
-                "llm": {
-                    "provider": "openai",
-                    "config": {
-                        "api_key": settings.openai_api_key,
-                        "model": "gpt-4o-mini",
-                        "temperature": 0.1,
-                        "max_tokens": 2048,
-                    }
-                },
-                "embedder": {
-                    "provider": "openai",
-                    "config": {
-                        "api_key": settings.openai_api_key,
-                        "model": "text-embedding-3-small"
-                    }
-                },
-                "history_db_path": "./data/mem0_history.db",
-                "version": "v1.1"
+                }
             }
             
-            if settings.openai_api_key:
+            # 尝试用配置初始化，如果失败则使用默认配置
+            try:
                 self.memory = Memory.from_config(config)
-                app_logger.info("Mem0记忆管理初始化成功")
-            else:
-                app_logger.warning("OpenAI API密钥未配置，记忆功能将被禁用")
+            except Exception as config_error:
+                app_logger.warning(f"使用配置初始化失败: {config_error}，尝试默认配置")
+                # 使用默认配置
+                self.memory = Memory()
+                
+            app_logger.info("Mem0记忆管理初始化成功")
                 
         except Exception as e:
             app_logger.error(f"Mem0初始化失败: {e}")
+            app_logger.info("记忆功能将被禁用，但不影响其他功能")
             self.memory = None
     
     def is_enabled(self) -> bool:
