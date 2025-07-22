@@ -5,11 +5,6 @@ import os
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import tool
 from crewai.memory import LongTermMemory, ShortTermMemory, EntityMemory
-from crewai_tools import (
-    # 基础RAG工具（稳定可靠的工具）
-    FileReadTool,
-    TXTSearchTool,
-)
 from app.core.llm_service import llm_service
 from app.core.memory_service import memory_service  
 from app.core.monitoring_service import monitoring_service
@@ -37,40 +32,6 @@ def analyze_data(data_description: str) -> str:
         return f"数据分析结果: 基于'{data_description}'的分析显示了关键趋势和模式"
     except Exception as e:
         return f"数据分析失败: {str(e)}"
-
-
-@tool("safe_directory_search")
-def safe_directory_search(directory: str = "./data", query: str = "") -> str:
-    """安全的目录搜索，处理编码问题"""
-    try:
-        import os
-        import chardet
-        
-        if not os.path.exists(directory):
-            return f"目录不存在: {directory}"
-        
-        files_info = []
-        for root, dirs, files in os.walk(directory):
-            for file in files:
-                file_path = os.path.join(root, file)
-                try:
-                    file_size = os.path.getsize(file_path)
-                    # 只读取文本文件的基本信息，避免二进制文件
-                    if file.endswith(('.txt', '.json', '.md', '.py', '.yml', '.yaml')):
-                        files_info.append(f"{file_path} ({file_size} bytes) - 文本文件")
-                    else:
-                        files_info.append(f"{file_path} ({file_size} bytes) - 二进制文件")
-                except Exception as e:
-                    files_info.append(f"{file_path} - 访问失败: {str(e)}")
-        
-        result = f"目录 {directory} 包含 {len(files_info)} 个文件:\n" + "\n".join(files_info)
-        if query:
-            matching_files = [f for f in files_info if query.lower() in f.lower()]
-            result += f"\n\n匹配查询 '{query}' 的文件: {len(matching_files)} 个:\n" + "\n".join(matching_files)
-        
-        return result
-    except Exception as e:
-        return f"目录搜索失败: {str(e)}"
 
 
 class CrewMultiAgent:
@@ -125,22 +86,14 @@ class CrewMultiAgent:
         try:
             # 基础RAG工具集合（稳定可靠）
             self.rag_tools = [
-                safe_directory_search,  # 自定义安全目录搜索
-                FileReadTool(),  # 基础文件读取
-                TXTSearchTool(),  # 文本文件搜索
                 search_local_knowledge,  # 自定义本地知识搜索
             ]
-            
             # 数据分析工具集合（自定义工具，稳定可靠）
             self.analysis_tools = [
                 analyze_data,  # 自定义数据分析工具
             ]
-            
             # 文档工具集合（基础工具）
-            self.document_tools = [
-                FileReadTool(),  # 文件读取
-            ]
-            
+            self.document_tools = []
             # 整合所有工具
             self.all_tools = {
                 "rag_tools": self.rag_tools,
@@ -150,13 +103,11 @@ class CrewMultiAgent:
                 "coordination_tools": self.rag_tools + self.analysis_tools,
                 "review_tools": self.document_tools + self.rag_tools,
             }
-            
             app_logger.info("CrewAI工具初始化完成")
-            
         except Exception as e:
             app_logger.error(f"工具初始化失败: {e}")
             # 设置基础工具作为后备
-            self.rag_tools = [FileReadTool()]
+            self.rag_tools = []
             self.all_tools = {"rag_tools": self.rag_tools}
     
     async def execute(

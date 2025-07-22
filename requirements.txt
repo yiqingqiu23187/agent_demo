@@ -13,8 +13,7 @@ langgraph==0.5.3
 langsmith==0.4.8
 
 # CrewAI 多智能体框架  
-crewai>=0.140.0
-crewai_tools>=0.12.0
+crewai==0.148.0
 
 # LangFuse 监控
 langfuse==3.2.1
@@ -59,14 +58,14 @@ redis==5.0.1
 loguru==0.7.2
 
 # 搜索工具
-duckduckgo-search>=3.0.0
+duckduckgo-search==8.1.1
 
 # HuggingFace Embeddings (本地模型)
-langchain-huggingface>=0.1.0
-sentence-transformers>=2.0.0
+langchain-huggingface==0.1.0
+sentence-transformers==2.6.0
 
 # 开发工具
-pytest>=8.0.0
+pytest==8.0.0
 pytest-asyncio==0.21.1
 black==23.11.0
 isort==5.13.2 

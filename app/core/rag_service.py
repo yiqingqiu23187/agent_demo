@@ -143,6 +143,46 @@ class RAGService:
         
         return sources
     
+    async def query_knowledge_base(
+        self,
+        query: str,
+        collection_name: str,
+        top_k: int = 5
+    ) -> Dict[str, Any]:
+        """查询知识库 - API接口调用的方法"""
+        try:
+            app_logger.info(f"查询知识库: {query}")
+            
+            results = await self.vector_service.search(
+                query=query,
+                collection_name=collection_name,
+                top_k=top_k
+            )
+            
+            if not results:
+                app_logger.warning("未找到相关文档")
+                return {
+                    "documents": [],
+                    "scores": [],
+                    "query": query,
+                    "collection_name": collection_name
+                }
+            
+            # 提取文档和分数
+            documents = [doc.get("content", "") for doc in results]
+            scores = [doc.get("score", 0.0) for doc in results]
+            
+            return {
+                "documents": documents,
+                "scores": scores,
+                "query": query,
+                "collection_name": collection_name
+            }
+            
+        except Exception as e:
+            app_logger.error(f"查询知识库失败: {e}")
+            raise
+    
     async def search_documents_by_metadata(
         self,
         collection_name: str,

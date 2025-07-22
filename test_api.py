@@ -55,8 +55,11 @@ class APITester:
         # 测试单个文档添加
         print("\n📚 测试1: 添加单个文档")
         try:
+            # collection_name作为查询参数，其他作为JSON body
+            params = {
+                "collection_name": "test_knowledge"
+            }
             data = {
-                "collection_name": "test_knowledge",
                 "texts": [
                     "人工智能(AI)是计算机科学的一个分支，旨在创建能够模拟人类智能的机器。",
                     "机器学习是人工智能的一个子领域，通过算法让计算机从数据中学习模式。",
@@ -69,7 +72,7 @@ class APITester:
                 ]
             }
             
-            response = self.session.post(f"{self.base_url}/api/v1/rag/documents", json=data)
+            response = self.session.post(f"{self.base_url}/api/v1/rag/documents", params=params, json=data)
             if response.status_code == 200:
                 self.print_result("添加单个文档", True, response.json())
             else:
@@ -81,21 +84,22 @@ class APITester:
         # 测试批量文档添加
         print("\n📚 测试2: 批量添加文档")
         try:
-            data = {
-                "collection_name": "test_knowledge",
-                "documents": [
-                    {
-                        "text": "Python是一种高级编程语言，广泛用于数据科学和AI开发。",
-                        "metadata": {"source": "Python指南", "category": "编程语言"}
-                    },
-                    {
-                        "text": "FastAPI是一个现代的Python Web框架，用于构建高性能的API。",
-                        "metadata": {"source": "FastAPI文档", "category": "Web框架"}
-                    }
-                ]
+            # collection_name作为查询参数，documents作为JSON body
+            params = {
+                "collection_name": "test_knowledge"
             }
+            data = [
+                {
+                    "content": "Python是一种高级编程语言，广泛用于数据科学和AI开发。",
+                    "metadata": {"source": "Python指南", "category": "编程语言"}
+                },
+                {
+                    "content": "FastAPI是一个现代的Python Web框架，用于构建高性能的API。",
+                    "metadata": {"source": "FastAPI文档", "category": "Web框架"}
+                }
+            ]
             
-            response = self.session.post(f"{self.base_url}/api/v1/rag/batch_documents", json=data)
+            response = self.session.post(f"{self.base_url}/api/v1/rag/batch_documents", params=params, json=data)
             if response.status_code == 200:
                 self.print_result("批量添加文档", True, response.json())
             else:
@@ -186,14 +190,14 @@ class APITester:
         self.print_separator("测试RAG查询")
         
         try:
-            # RAG查询接口使用form data格式
-            data = {
+            # RAG查询接口使用查询参数格式
+            params = {
                 "query": "什么是人工智能？",
                 "collection_name": "test_knowledge",
                 "top_k": 3
             }
             
-            response = self.session.post(f"{self.base_url}/api/v1/rag/query", data=data)
+            response = self.session.post(f"{self.base_url}/api/v1/rag/query", params=params)
             if response.status_code == 200:
                 self.print_result("RAG查询", True, response.json())
             else:
@@ -242,6 +246,6 @@ class APITester:
 if __name__ == "__main__":
     # 创建测试器实例
     tester = APITester()
-    
+
     # 运行所有测试
     tester.run_all_tests() 
