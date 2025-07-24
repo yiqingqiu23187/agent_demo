@@ -55,21 +55,21 @@ RAG可以分为两个主要阶段：
 ```mermaid
 graph TD
     subgraph offline["离线阶段：建立知识库"]
-        A["原始文档(PDF, TXT, HTML等)"] -->|"1. Chunking (分块)"| B("文本块 Chunks")
-        B -->|"2. Embedding (向量化)"| C{"Embedding Model"}
+        A["原始文档<br/>(PDF, TXT, HTML等)"] -->|"a. Chunking<br/>(分块)"| B("文本块 Chunks")
+        B -->|"b. Embedding<br/>(向量化)"| C{"Embedding Model"}
         C --> D["文本向量 Vectors"]
-        D -->|"3. Indexing (索引)"| E[("向量数据库<br/>Vector Database")]
+        D -->|"c. Indexing<br/>(索引)"| E[("向量数据库<br/>Vector Database")]
     end
 
     subgraph online["在线阶段：问答与生成"]
-        F["用户问题<br/>User Query"] -->|"a. Embedding (向量化)"| G{"Embedding Model"}
-        G --> H["问题向量 Query Vector"]
-        H -->|"b. Retrieval (召回)"| E
+        F["用户问题<br/>User Query"] -->|"d. Embedding<br/>(向量化)"| G{"Embedding Model"}
+        G --> H["问题向量<br/>Query Vector"]
+        H -->|"e. Retrieval<br/>(召回)"| E
         E --> I["Top-K 相关文本块<br/>Retrieved Chunks"]
-        I -->|"c. Reranking (重排)"| J["优化后的文本块<br/>Reranked Chunks"]
-        J --> K{"提示词构建<br/>Augmented Prompt"}
+        I -->|"f. Reranking<br/>(重排)"| J["优化后的文本块<br/>Reranked Chunks"]
+        J --> K["提示词构建<br/>Augmented Prompt"]
         F --> K
-        K -->|"d. Generation (生成)"| L["大语言模型 (LLM)"]
+        K -->|"h. Generation<br/>(生成)"| L["大语言模型<br/>(LLM)"]
         L --> M["最终答案<br/>Final Answer"]
     end
 ```
@@ -223,9 +223,6 @@ graph TD
         P --> S[记忆合并<br>Memory Consolidation]
     end
 ```
-推荐rag与mem的实践好文：
-https://km.sankuai.com/collabpage/2712022341?from=citadel_space_tree
----
 
 #### **记忆的三个层次**
 
@@ -362,6 +359,8 @@ https://km.sankuai.com/collabpage/2712022341?from=citadel_space_tree
     *   **决策相关性**：影响用户决策的信息更重要
     *   **时效性**：较新的信息通常比较旧的更重要
 
+推荐rag与mem的实践好文：
+https://km.sankuai.com/collabpage/2712022341?from=citadel_space_tree
 ---
 
 #### **Mem0的技术优势**

@@ -115,14 +115,14 @@ class APITester:
         try:
             data = {
                 "agent_type": "react",
-                "task": "请搜索并分析一下人工智能的最新发展趋势",
+                "task": "北京今天的天气怎么样",
                 "user_id": "test_user_001",
                 "session_id": f"session_{int(time.time())}",
                 "agent_id": "react_agent_001",
                 "model": "gpt-4o-mini",
                 "max_iterations": 3,
                 "use_memory": True,
-                "tools": ["search", "calculator"]
+                "tools": [ "calculator","weather"]
             }
             
             response = self.session.post(f"{self.base_url}/api/v1/agents/execute", json=data)
